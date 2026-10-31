@@ -3,41 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>전통예고/전통예중고 실시간 뉴스</title>
+  <title>전통예고 모니터링 대시보드</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; background-color: #f8f9fa; color: #333; }
     .container { max-width: 800px; margin: 0 auto; }
-    h1 { text-align: center; font-size: 1.5rem; margin-bottom: 20px; }
+    h1 { text-align: center; font-size: 1.4rem; margin-bottom: 16px; }
     
+    /* 통계 대시보드 카드 */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card h3 { margin: 0 0 8px 0; font-size: 0.9rem; color: #666; }
+    .stat-card .num { font-size: 1.5rem; font-weight: bold; color: #007bff; }
+    
+    .daily-stats { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .daily-stats h3 { margin: 0 0 10px 0; font-size: 0.95rem; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px dashed #eee; }
+    
+    /* 필터 및 검색 */
     .filter-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-    .tab-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 20px; background: white; cursor: pointer; font-size: 0.9rem; }
-    .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 16px; background: white; cursor: pointer; font-size: 0.85rem; }
+    .tab-btn.active { background: #333; color: white; border-color: #333; }
     
-    .search-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+    .search-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
     
+    /* 뉴스 카드 및 뱃지 */
     .news-card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .badge { display: inline-block; padding: 4px 8px; background: #e9ecef; color: #495057; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; }
-    .news-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; margin-right: 4px; }
+    .badge-keyword { background: #e9ecef; color: #495057; }
+    .badge-normal { background: #e2e3e5; color: #383d41; }
+    .badge-negative { background: #f8d7da; color: #721c24; }
+    
+    .news-title { font-size: 1.05rem; font-weight: bold; margin-bottom: 8px; }
     .news-title a { color: #1a0dab; text-decoration: none; }
     .news-title a:hover { text-decoration: underline; }
-    .news-desc { font-size: 0.9rem; color: #555; line-height: 1.4; margin-bottom: 8px; }
-    .news-date { font-size: 0.8rem; color: #888; }
+    .news-desc { font-size: 0.88rem; color: #555; line-height: 1.4; margin-bottom: 8px; }
+    .news-date { font-size: 0.78rem; color: #888; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📰 전통예고·전통예중고 실시간 뉴스</h1>
+    <h1>📰 뉴스 분석</h1>
     
+    <!-- 통계 요약 영역 -->
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <h3>⚡ 최근 24시간 신규 기사</h3>
+        <div class="num" id="recent24hCount">0건</div>
+      </div>
+      <div class="stat-card">
+        <h3>📊 누적 수집 기사</h3>
+        <div class="num" id="totalCount" style="color: #333;">0건</div>
+      </div>
+    </div>
+
+    <!-- 일자별 긍부정 요약 -->
+    <div class="daily-stats">
+      <h3>📅 최근 일자별 기사 성격 통계</h3>
+      <div id="dailyStatList">로딩 중...</div>
+    </div>
+    
+    <!-- 검색 및 필터 -->
     <div class="filter-section">
       <div class="tabs" id="tabs">
         <button class="tab-btn active" onclick="filterKeyword('ALL')">전체</button>
         <button class="tab-btn" onclick="filterKeyword('국립전통예술고')">국립전통예술고</button>
+        <button class="tab-btn" onclick="filterKeyword('전통예술고')">전통예술고</button>        
         <button class="tab-btn" onclick="filterKeyword('전통예고')">전통예고</button>
         <button class="tab-btn" onclick="filterKeyword('전통예중고')">전통예중고</button>
+        <button class="tab-btn" style="border-color: #dc3545; color: #dc3545;" onclick="filterSentiment('부정')">⚠️ 부정 기사만 보기</button>
       </div>
-      <input type="text" id="searchInput" class="search-input" placeholder="수집된 뉴스 결과 내 검색..." oninput="renderNews()">
+      <input type="text" id="searchInput" class="search-input" placeholder="결과 내 검색..." oninput="renderNews()">
     </div>
 
     <div id="newsList">로딩 중...</div>
@@ -46,23 +83,92 @@
   <script>
     let allNews = [];
     let currentKeyword = 'ALL';
+    let currentSentiment = 'ALL';
 
     async function loadNews() {
       try {
         const response = await fetch('news_data.json?t=' + new Date().getTime());
         allNews = await response.json();
+        calculateStats();
         renderNews();
       } catch (error) {
         document.getElementById('newsList').innerText = '뉴스를 불러오는 데 실패했습니다.';
       }
     }
 
+    function calculateStats() {
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+      
+      // 1. 최근 24시간 기사 수 계산
+      const recent24h = allNews.filter(item => {
+        if (!item.fetchedAt) return false;
+        const fetchedDate = new Date(item.fetchedAt.replace(' ', 'T'));
+        return fetchedDate >= twentyFourHoursAgo;
+      });
+      document.getElementById('recent24hCount').innerText = `${recent24h.length}건`;
+      document.getElementById('totalCount').innerText = `${allNews.length}건`;
+
+      // 2. 일자별 긍/부정 통계 계산 (pubDate 기준)
+      const dailyMap = {};
+      allNews.forEach(item => {
+        let dateStr = "날짜 미상";
+        if (item.pubDate) {
+          const d = new Date(item.pubDate);
+          if (!isNaN(d.getTime())) {
+            dateStr = d.toISOString().split('T')[0];
+          }
+        }
+        
+        if (!dailyMap[dateStr]) {
+          dailyMap[dateStr] = { normal: 0, negative: 0 };
+        }
+        
+        if (item.sentiment === '부정') {
+          dailyMap[dateStr].negative++;
+        } else {
+          dailyMap[dateStr].normal++;
+        }
+      });
+
+      // 최근 날짜순 정렬 후 상위 5일만 표출
+      const sortedDates = Object.keys(dailyMap).sort().reverse().slice(0, 5);
+      const dailyContainer = document.getElementById('dailyStatList');
+      
+      if (sortedDates.length === 0) {
+        dailyContainer.innerHTML = '<div class="stat-row">통계 데이터가 없습니다.</div>';
+        return;
+      }
+
+      dailyContainer.innerHTML = sortedDates.map(date => {
+        const stat = dailyMap[date];
+        return `
+          <div class="stat-row">
+            <span><strong>${date}</strong></span>
+            <span>일반 <strong>${stat.normal}</strong>건 | <span style="color:#dc3545;">부정 <strong>${stat.negative}</strong>건</span></span>
+          </div>
+        `;
+      }).join('');
+    }
+
     function filterKeyword(keyword) {
       currentKeyword = keyword;
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.innerText === (keyword === 'ALL' ? '전체' : keyword));
-      });
+      currentSentiment = 'ALL';
+      updateTabStyle();
       renderNews();
+    }
+
+    function filterSentiment(sentiment) {
+      currentSentiment = sentiment;
+      currentKeyword = 'ALL';
+      updateTabStyle();
+      renderNews();
+    }
+
+    function updateTabStyle() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
     }
 
     function renderNews() {
@@ -70,26 +176,37 @@
       
       const filtered = allNews.filter(item => {
         const matchKeyword = currentKeyword === 'ALL' || item.keyword === currentKeyword;
+        const matchSentiment = currentSentiment === 'ALL' || item.sentiment === currentSentiment;
         const matchSearch = item.title.toLowerCase().includes(searchItem) || item.description.toLowerCase().includes(searchItem);
-        return matchKeyword && matchSearch;
+        return matchKeyword && matchSentiment && matchSearch;
       });
 
       const container = document.getElementById('newsList');
       if (filtered.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#888;">수집된 뉴스가 없거나 검색 결과가 없습니다.</p>';
+        container.innerHTML = '<p style="text-align:center; color:#888;">조건에 맞는 뉴스가 없습니다.</p>';
         return;
       }
 
-      container.innerHTML = filtered.map(item => `
-        <div class="news-card">
-          <span class="badge">${item.keyword || '키워드'}</span>
-          <div class="news-title">
-            <a href="${item.link}" target="_blank">${item.title}</a>
+      container.innerHTML = filtered.map(item => {
+        const isNegative = item.sentiment === '부정';
+        const sentimentBadge = isNegative 
+          ? `<span class="badge badge-negative">⚠️ 부정</span>` 
+          : `<span class="badge badge-normal">일반</span>`;
+          
+        return `
+          <div class="news-card">
+            <div>
+              <span class="badge badge-keyword">${item.keyword || '키워드'}</span>
+              ${sentimentBadge}
+            </div>
+            <div class="news-title">
+              <a href="${item.link}" target="_blank">${item.title}</a>
+            </div>
+            <div class="news-desc">${item.description}</div>
+            <div class="news-date">${item.pubDate || ''} (수집: ${item.fetchedAt || ''})</div>
           </div>
-          <div class="news-desc">${item.description}</div>
-          <div class="news-date">${item.pubDate} (수집: ${item.fetchedAt})</div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     loadNews();
