@@ -7,17 +7,16 @@ from datetime import datetime
 CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "").strip()
 CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
 
+# 요청하신 4개 키워드 순서 반영
 TARGET_KEYWORDS = ["국립전통예술고", "전통예술고", "전통예고", "전통예중고"]
 
-# 부정 기사 판별용 키워드 사전 (필요시 단어 추가 가능)
 NEGATIVE_WORDS = [
     "논란", "비판", "우려", "적발", "실망", "의혹", "사건", "사고", 
     "피해", "소송", "고발", "경고", "징계", "갈등", "반발", "의구심", 
-    "참사", "입건", "수사", "혐의", "부실", "파문", "투서", "갑질", "성폭행", "학교폭력"
+    "참사", "입건", "수사", "혐의", "부실", "파문", "투서", "갑질"
 ]
 
 def analyze_sentiment(title, description):
-    """제목 및 본문에서 부정 키워드 포함 여부 검사"""
     text = title + " " + description
     for word in NEGATIVE_WORDS:
         if word in text:
@@ -59,10 +58,10 @@ for keyword in TARGET_KEYWORDS:
                 link = item.get('originallink') or item.get('link')
                 pub_date = item.get('pubDate', '')
                 
+                # 키워드 일치 여부 필터링
                 is_exact_match = any(target in clean_title or target in clean_desc for target in TARGET_KEYWORDS)
                 
                 if is_exact_match and link not in existing_links:
-                    # 감성 분류 수행 (부정 vs 일반)
                     sentiment = analyze_sentiment(clean_title, clean_desc)
                     
                     all_new_items.append({
@@ -84,4 +83,4 @@ final_news = combined_news[:150]
 with open("news_data.json", "w", encoding="utf-8") as f:
     json.dump(final_news, f, ensure_ascii=False, indent=2)
 
-print(f"수집 완. 신규: {len(all_new_items)}건 / 총: {len(final_news)}건")
+print(f"수집 완료. 신규: {len(all_new_items)}건 / 총: {len(final_news)}건")
