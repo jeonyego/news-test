@@ -4,21 +4,21 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-# GitHub Secrets에서 키 가져오기
+# GitHub Secrets에서 인증 키 불러오기
 CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "").strip()
 CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
 
 SEARCH_KEYWORD = "인공지능"
 encText = urllib.parse.quote(SEARCH_KEYWORD)
 
-# NAVER API HUB 전용 검색 API URL
-url = f"https://naveropenapi.apigw.ntruss.com/debug-news/v1/news.json?query={encText}&display=20&sort=date"
+# NAVER API HUB 공식 뉴스 검색 엔드포인트
+url = f"https://naverapihub.apigw.ntruss.com/search/v1/news?query={encText}&display=20&sort=date"
 
 request = urllib.request.Request(url)
 
-# NAVER API HUB 전용 인증 헤더 설정
-request.add_header("x-ncp-apigw-api-key-id", CLIENT_ID)
-request.add_header("x-ncp-apigw-api-key", CLIENT_SECRET)
+# NAVER API HUB 공식 필수 요청 헤더
+request.add_header("X-NCP-APIGW-API-KEY-ID", CLIENT_ID)
+request.add_header("X-NCP-APIGW-API-KEY", CLIENT_SECRET)
 
 try:
     response = urllib.request.urlopen(request)
@@ -61,11 +61,11 @@ try:
         with open("news_data.json", "w", encoding="utf-8") as f:
             json.dump(final_news, f, ensure_ascii=False, indent=2)
             
-        print(f"수집 성공! 새로 추가된 뉴스: {len(new_items)}건 / 총 저장된 뉴스: {len(final_news)}건")
+        print(f"뉴스 수집 성공! 새로 추가된 뉴스: {len(new_items)}건 / 총 저장된 뉴스: {len(final_news)}건")
     else:
-        print(f"API 요청 실패 응답 코드: {rescode}")
+        print(f"API 요청 실패 (응답 코드: {rescode})")
         exit(1)
 
 except Exception as e:
-    print(f"실행 오류: {e}")
+    print(f"실행 중 오류 발생: {e}")
     exit(1)
