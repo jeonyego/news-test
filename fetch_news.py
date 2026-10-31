@@ -4,16 +4,24 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-CLIENT_ID = os.environ.get("NAVER_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET")
+CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "").strip()
+CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
 
-SEARCH_KEYWORD = "인공지능"
+SEARCH_KEYWORD = "전통예술고"
 encText = urllib.parse.quote(SEARCH_KEYWORD)
+
+# API HUB 및 기존 검색 API 호환 호출
 url = f"https://openapi.naver.com/v1/search/news.json?query={encText}&display=20&sort=date"
 
 request = urllib.request.Request(url)
+
+# 기본 네이버 Open API 헤더
 request.add_header("X-Naver-Client-Id", CLIENT_ID)
 request.add_header("X-Naver-Client-Secret", CLIENT_SECRET)
+
+# NAVER API HUB 호환 헤더 추가
+request.add_header("x-ncp-apigw-api-key-id", CLIENT_ID)
+request.add_header("x-ncp-apigw-api-key", CLIENT_SECRET)
 
 try:
     response = urllib.request.urlopen(request)
@@ -56,11 +64,11 @@ try:
         with open("news_data.json", "w", encoding="utf-8") as f:
             json.dump(final_news, f, ensure_ascii=False, indent=2)
             
-        print(f"새로 추가된 뉴스: {len(new_items)}건 / 총 저장된 뉴스: {len(final_news)}건")
+        print(f"성공! 새로 추가된 뉴스: {len(new_items)}건 / 총 저장된 뉴스: {len(final_news)}건")
     else:
         print(f"API 요청 실패 응답 코드: {rescode}")
         exit(1)
 
 except Exception as e:
     print(f"파이썬 실행 중 오류 발생: {e}")
-    exit(1) # 오류 발생 시 작업을 중단하여 로그에 에러를 기록
+    exit(1)
