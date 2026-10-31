@@ -18,13 +18,18 @@
     
     .daily-stats { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .daily-stats h3 { margin: 0 0 10px 0; font-size: 0.95rem; }
-    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px dashed #eee; }
+    
+    /* 날짜 클릭 인터랙션 스타일 */
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 8px 6px; border-bottom: 1px dashed #eee; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+    .stat-row:hover { background-color: #f1f3f5; }
+    .stat-row.active-date { background-color: #e7f5ff; border-left: 3px solid #007bff; }
     
     /* 필터 및 검색 */
     .filter-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
     .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
     .tab-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 16px; background: white; cursor: pointer; font-size: 0.85rem; }
     .tab-btn.active { background: #333; color: white; border-color: #333; }
+    .tab-btn.date-btn { background: #007bff; color: white; border-color: #007bff; }
     
     .search-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
     
@@ -44,7 +49,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>📰 뉴스 분석</h1>
+    <h1>📰 전통예고 실시간 뉴스 분석</h1>
     
     <!-- 통계 요약 영역 -->
     <div class="dashboard-grid">
@@ -60,19 +65,20 @@
 
     <!-- 일자별 긍부정 요약 -->
     <div class="daily-stats">
-      <h3>📅 최근 일자별 기사 성격 통계</h3>
+      <h3>📅 최근 일자별 기사 성격 통계 <span style="font-size:0.75rem; color:#888; font-weight:normal;">(날짜 클릭 시 해당 일자 기사만 보기)</span></h3>
       <div id="dailyStatList">로딩 중...</div>
     </div>
     
     <!-- 검색 및 필터 -->
     <div class="filter-section">
       <div class="tabs" id="tabs">
-        <button class="tab-btn active" onclick="filterKeyword('ALL')">전체</button>
-        <button class="tab-btn" onclick="filterKeyword('국립전통예술고')">국립전통예술고</button>
-        <button class="tab-btn" onclick="filterKeyword('전통예술고')">전통예술고</button>        
-        <button class="tab-btn" onclick="filterKeyword('전통예고')">전통예고</button>
-        <button class="tab-btn" onclick="filterKeyword('전통예중고')">전통예중고</button>
-        <button class="tab-btn" style="border-color: #dc3545; color: #dc3545;" onclick="filterSentiment('부정')">⚠️ 부정 기사만 보기</button>
+        <button class="tab-btn active" id="btn-all" onclick="filterKeyword('ALL')">전체</button>
+        <button class="tab-btn" id="btn-kw1" onclick="filterKeyword('국립전통예술고')">국립전통예술고</button>
+        <button class="tab-btn" id="btn-kw2" onclick="filterKeyword('전통예술고')">전통예술고</button>
+        <button class="tab-btn" id="btn-kw2" onclick="filterKeyword('전통예고')">전통예고</button>
+        <button class="tab-btn" id="btn-kw3" onclick="filterKeyword('전통예중고')">전통예중고</button>
+        <button class="tab-btn" id="btn-neg" style="border-color: #dc3545; color: #dc3545;" onclick="filterSentiment('부정')">⚠️ 부정 기사만 보기</button>
+        <span id="dateFilterTag"></span>
       </div>
       <input type="text" id="searchInput" class="search-input" placeholder="결과 내 검색..." oninput="renderNews()">
     </div>
@@ -84,11 +90,20 @@
     let allNews = [];
     let currentKeyword = 'ALL';
     let currentSentiment = 'ALL';
+    let currentDateFilter = 'ALL';
 
     async function loadNews() {
       try {
         const response = await fetch('news_data.json?t=' + new Date().getTime());
         allNews = await response.json();
+        
+        // [최신순 정렬] pubDate 또는 fetchedAt 기준 내림차순 정렬
+        allNews.sort((a, b) => {
+          const dateA = new Date(a.pubDate || a.fetchedAt);
+          const dateB = new Date(b.pubDate || b.fetchedAt);
+          return dateB - dateA;
+        });
+
         calculateStats();
         renderNews();
       } catch (error) {
@@ -96,11 +111,17 @@
       }
     }
 
+    function extractDateStr(pubDateStr) {
+      if (!pubDateStr) return "날짜 미상";
+      const d = new Date(pubDateStr);
+      if (isNaN(d.getTime())) return "날짜 미상";
+      return d.toISOString().split('T')[0];
+    }
+
     function calculateStats() {
       const now = new Date();
       const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
       
-      // 1. 최근 24시간 기사 수 계산
       const recent24h = allNews.filter(item => {
         if (!item.fetchedAt) return false;
         const fetchedDate = new Date(item.fetchedAt.replace(' ', 'T'));
@@ -109,21 +130,12 @@
       document.getElementById('recent24hCount').innerText = `${recent24h.length}건`;
       document.getElementById('totalCount').innerText = `${allNews.length}건`;
 
-      // 2. 일자별 긍/부정 통계 계산 (pubDate 기준)
       const dailyMap = {};
       allNews.forEach(item => {
-        let dateStr = "날짜 미상";
-        if (item.pubDate) {
-          const d = new Date(item.pubDate);
-          if (!isNaN(d.getTime())) {
-            dateStr = d.toISOString().split('T')[0];
-          }
-        }
-        
+        const dateStr = extractDateStr(item.pubDate);
         if (!dailyMap[dateStr]) {
           dailyMap[dateStr] = { normal: 0, negative: 0 };
         }
-        
         if (item.sentiment === '부정') {
           dailyMap[dateStr].negative++;
         } else {
@@ -131,8 +143,7 @@
         }
       });
 
-      // 최근 날짜순 정렬 후 상위 5일만 표출
-      const sortedDates = Object.keys(dailyMap).sort().reverse().slice(0, 5);
+      const sortedDates = Object.keys(dailyMap).sort().reverse().slice(0, 7);
       const dailyContainer = document.getElementById('dailyStatList');
       
       if (sortedDates.length === 0) {
@@ -142,13 +153,32 @@
 
       dailyContainer.innerHTML = sortedDates.map(date => {
         const stat = dailyMap[date];
+        const isActive = currentDateFilter === date ? 'active-date' : '';
         return `
-          <div class="stat-row">
-            <span><strong>${date}</strong></span>
+          <div class="stat-row ${isActive}" onclick="filterDate('${date}')">
+            <span>📅 <strong>${date}</strong></span>
             <span>일반 <strong>${stat.normal}</strong>건 | <span style="color:#dc3545;">부정 <strong>${stat.negative}</strong>건</span></span>
           </div>
         `;
       }).join('');
+    }
+
+    function filterDate(date) {
+      if (currentDateFilter === date) {
+        currentDateFilter = 'ALL';
+      } else {
+        currentDateFilter = date;
+      }
+      calculateStats();
+      updateTabStyle();
+      renderNews();
+    }
+
+    function clearDateFilter() {
+      currentDateFilter = 'ALL';
+      calculateStats();
+      updateTabStyle();
+      renderNews();
     }
 
     function filterKeyword(keyword) {
@@ -166,9 +196,26 @@
     }
 
     function updateTabStyle() {
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      if (currentSentiment === '부정') {
+        document.getElementById('btn-neg').classList.add('active');
+      } else if (currentKeyword === '국립전통예술고') {
+        document.getElementById('btn-kw1').classList.add('active');
+      } else if (currentKeyword === '전통예고') {
+        document.getElementById('btn-kw2').classList.add('active');
+      } else if (currentKeyword === '전통예중고') {
+        document.getElementById('btn-kw3').classList.add('active');
+      } else if (currentKeyword === 'ALL' && currentDateFilter === 'ALL') {
+        document.getElementById('btn-all').classList.add('active');
+      }
+
+      const dateTag = document.getElementById('dateFilterTag');
+      if (currentDateFilter !== 'ALL') {
+        dateTag.innerHTML = `<button class="tab-btn date-btn" onclick="clearDateFilter()">${currentDateFilter} ✕</button>`;
+      } else {
+        dateTag.innerHTML = '';
+      }
     }
 
     function renderNews() {
@@ -177,8 +224,9 @@
       const filtered = allNews.filter(item => {
         const matchKeyword = currentKeyword === 'ALL' || item.keyword === currentKeyword;
         const matchSentiment = currentSentiment === 'ALL' || item.sentiment === currentSentiment;
+        const matchDate = currentDateFilter === 'ALL' || extractDateStr(item.pubDate) === currentDateFilter;
         const matchSearch = item.title.toLowerCase().includes(searchItem) || item.description.toLowerCase().includes(searchItem);
-        return matchKeyword && matchSentiment && matchSearch;
+        return matchKeyword && matchSentiment && matchDate && matchSearch;
       });
 
       const container = document.getElementById('newsList');
