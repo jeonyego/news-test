@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 뉴스 모니터링</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; color: #333; line-height: 1.5; padding: 15px; }
+        .header { margin-bottom: 20px; text-align: center; }
+        .header h1 { font-size: 1.4rem; color: #111; }
+        .header p { font-size: 0.85rem; color: #666; margin-top: 4px; }
+        .news-list { display: flex; flex-direction: column; gap: 12px; max-width: 600px; margin: 0 auto; }
+        .news-card { background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-decoration: none; color: inherit; display: block; transition: transform 0.1s ease; }
+        .news-card:active { transform: scale(0.98); }
+        .news-title { font-size: 1.05rem; font-weight: bold; color: #1a0dab; margin-bottom: 6px; }
+        .news-desc { font-size: 0.88rem; color: #444; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; }
+        .news-date { font-size: 0.75rem; color: #888; text-align: right; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>뉴스 자동 모니터링</h1>
+        <p id="update-time">불러오는 중...</p>
+    </div>
+    <div class="news-list" id="news-container">
+        <div class="loading">뉴스를 가져오는 중입니다...</div>
+    </div>
+
+    <script>
+        async function fetchNews() {
+            try {
+                const response = await fetch('news_data.json?' + new Date().getTime());
+                const data = await response.json();
+                
+                const container = document.getElementById('news-container');
+                const updateTime = document.getElementById('update-time');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="loading">저장된 뉴스가 없습니다.</div>';
+                    return;
+                }
+
+                updateTime.textContent = `최근 수집: ${data[0].fetchedAt || '최신'}`;
+                
+                container.innerHTML = data.map(item => `
+                    <a href="${item.link}" target="_blank" class="news-card">
+                        <div class="news-title">${item.title}</div>
+                        <div class="news-desc">${item.description}</div>
+                        <div class="news-date">${item.pubDate}</div>
+                    </a>
+                `).join('');
+            } catch (error) {
+                document.getElementById('news-container').innerHTML = '<div class="loading">뉴스를 불러오는데 실패했습니다. (첫 수집 완료 후 표시됩니다)</div>';
+            }
+        }
+        fetchNews();
+    </script>
+</body>
+</html>
